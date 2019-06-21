@@ -2,7 +2,7 @@
 
 my_dir=$(cd `dirname $0` && pwd)
 
-src_dir=$my_dir/../../
+src_dir=$my_dir/../../../
 imgaug_dir=/data/HiTIF/data/dl_segmentation_input/utils/imgaug
 export PYTHONPATH=$PYTHONPATH:$src_dir:$imgaug_dir
 
