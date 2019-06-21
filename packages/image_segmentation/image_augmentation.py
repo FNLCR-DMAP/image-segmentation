@@ -7,22 +7,83 @@
 """
 
 
-class AugmentationSettings:
+class AugmentationSettings(object):
+    """Abstract class specifying the augmentation parameters and sequences to apply and from which a new class can be inherited if desired;
+    default values/sequences are already-working sets.
+    """
+
+    def __init__(self):
+        # Define a nice default set of augmentation parameters
+
+        self.augmenters = {} 
+
+    # Define a default composite sequence of augmentations
+    def composite_sequence(self):
+        """Return the composite sequence to run, i.e., a set of transformations to all be applied to a set of images and/or masks.
+
+        :returns: Sequential object from the augmenters module of the imgaug package
+        """
+        pass
+
+    # Define a nice default set of individual augmentations in order to see what they do individually
+
+    def individual_seqs_and_outnames(self):
+        """Return a list of individual sequences to run, i.e., a set of transformations to be applied one-by-one to a set of images and/or masks in order to see what the augmentations do individually.
+
+        :returns: List of Sequential objects from the augmenters module of the imgaug package
+        """
+        from imgaug import augmenters as iaa
+
+        augmentation_tasks = []
+        augmenters = self.augmenters
+        for name, augmentation in self.augmenters.items():
+            augmentation_tasks.append([augmentation, name])
+
+        return augmentation_tasks
+
+
+#An example of augmentation class
+
+class TestAugment(AugmentationSettings):
     """Class specifying the augmentation parameters and sequences to apply and from which a new class can be inherited if desired;
     default values/sequences are already-working sets.
     """
+
     def __init__(self):
         # Define a nice default set of augmentation parameters
+        super(TestAugment, self).__init__()
+        self.initialize_augmenters()
+
+
+    def initialize_augmenters(self):
+
+        #set the augmentation values
         self.flip_factor = 0.5
         self.add_vals = (-30,30)
         self.multiply_factors = (0.75,1.25)
-        self.gaussian_blur_sigma = (0,0.75)
-        self.average_blur_pixels = (1,2)
-        self.median_blur_pixels = (1,3)
-        self.gaussian_noise_vals = (0,0.035*255)
+        self.gaussian_blur_sigma = (0,4)
+        self.average_blur_pixels = (1,9)
+        self.median_blur_pixels = (1,9)
+        self.gaussian_noise_vals = (0,0.1 * 255)
         self.contrast_normalization_factors = (0.75,1.25)
         self.rotation_degrees = (-90,90)
         self.scale_factors = (0.8,1.2)
+
+        from imgaug import augmenters as iaa
+
+        augmenters = self.augmenters 
+        augmenters['fliplr'] = iaa.Fliplr(self.flip_factor)
+        augmenters['flipup'] = iaa.Flipud(self.flip_factor)
+        augmenters['gaussian'] = iaa.GaussianBlur(sigma=self.gaussian_blur_sigma)
+        augmenters["median"] = iaa.MedianBlur(k=self.median_blur_pixels)
+        augmenters["contrast"] = iaa.ContrastNormalization(self.contrast_normalization_factors)
+        augmenters["additive_noise"] = iaa.AdditiveGaussianNoise(loc=0,scale=(self.gaussian_noise_vals))
+        augmenters["add"] = iaa.Add(self.add_vals)
+        augmenters["multiply"] = iaa.Multiply(self.multiply_factors)
+        augmenters["affine"] = iaa.Affine(
+                rotate=self.rotation_degrees,
+                scale=self.scale_factors
+            )
 
     # Define a nice default composite sequence of augmentations
     def composite_sequence(self):
@@ -30,49 +91,27 @@ class AugmentationSettings:
 
         :returns: Sequential object from the augmenters module of the imgaug package
         """
+
         from imgaug import augmenters as iaa
+        aug = self.augmenters
         return(iaa.Sequential([
-            iaa.Flipud(self.flip_factor),
-            iaa.Fliplr(self.flip_factor),
+            aug["fliplr"], 
+            aug["flipup"],
             iaa.Sometimes(0.5,
                 iaa.OneOf([
-                    iaa.GaussianBlur(sigma=self.gaussian_blur_sigma),
-                    #iaa.AverageBlur(k=self.average_blur_pixels), # There at least used to be a weird shift for this augmentation so I removed it
-                    iaa.MedianBlur(k=self.median_blur_pixels)
+                    aug["gaussian"], 
+                    aug["median"] 
                 ])),
-            iaa.ContrastNormalization(self.contrast_normalization_factors),
-            iaa.AdditiveGaussianNoise(loc=0,scale=(self.gaussian_noise_vals)),
+            aug["contrast"],
+            aug["additive_noise"], 
             iaa.OneOf([
-                iaa.Add(self.add_vals),
-                iaa.Multiply(self.multiply_factors)
+                aug["add"],
+                aug["multiply"]
             ]),
-            iaa.Affine(
-                rotate=self.rotation_degrees,
-                scale=self.scale_factors
-            )
+            aug["affine"]
         ]))
 
-    # Define a nice default set of individual augmentations in order to see what they do individually
-    def individual_seqs_and_outnames(self):
-        """Return a list of individual sequences to run, i.e., a set of transformations to be applied one-by-one to a set of images and/or masks in order to see what the augmentations do individually.
 
-        :returns: List of Sequential objects from the augmenters module of the imgaug package
-        """
-        from imgaug import augmenters as iaa
-        return([
-            [iaa.Sequential(iaa.Flipud(1)), 'flipud'],
-            [iaa.Sequential(iaa.Fliplr(1)), 'fliplr'],
-            [iaa.Sequential(iaa.Add((self.add_vals[0],self.add_vals[0]))), 'add_low'],
-            [iaa.Sequential(iaa.Add((self.add_vals[1],self.add_vals[1]))), 'add_high'],
-            [iaa.Sequential(iaa.Multiply((self.multiply_factors[0],self.multiply_factors[0]))), 'multiply_low'],
-            [iaa.Sequential(iaa.Multiply((self.multiply_factors[1],self.multiply_factors[1]))), 'multiply_high'],
-            [iaa.Sequential(iaa.GaussianBlur(sigma=(self.gaussian_blur_sigma[1],self.gaussian_blur_sigma[1]))), 'gaussian_blur'],
-            [iaa.Sequential(iaa.AverageBlur(k=(self.average_blur_pixels[1],self.average_blur_pixels[1]))), 'average_blur'],
-            [iaa.Sequential(iaa.MedianBlur(k=(self.median_blur_pixels[1],self.median_blur_pixels[1]))), 'median_blur'],
-            [iaa.Sequential(iaa.AdditiveGaussianNoise(loc=0,scale=(self.gaussian_noise_vals[1],self.gaussian_noise_vals[1]))), 'additive_gaussian_noise'],
-            [iaa.Sequential(iaa.ContrastNormalization((self.contrast_normalization_factors[0],self.contrast_normalization_factors[0]))), 'contrast_norm_low'],
-            [iaa.Sequential(iaa.ContrastNormalization((self.contrast_normalization_factors[1],self.contrast_normalization_factors[1]))), 'contrast_norm_high'],
-            [iaa.Sequential(iaa.Affine(rotate=self.rotation_degrees,scale=self.scale_factors)), 'affine']])
 
 #def augment_images(images, masks=None, num_aug=1, do_composite=True, output_dir=None, composite_sequence=None, individual_seqs_and_outnames=None, aug_params=None):
 def augment_images(images, masks=None, num_aug=1, do_composite=True, output_dir=None, AugSettings=None):
@@ -99,8 +138,8 @@ def augment_images(images, masks=None, num_aug=1, do_composite=True, output_dir=
     :param AugSettings:
         (Optional)  Object of the class that inherists from AugmentationSettings specifying the augmentation parameters and sequences to apply; whether composite or individual augmentation is determined by the do_composite parameter
 
-        if set to None, the default base class AugmentationSettings, defined in this module, is used;
-        to customize the augmentation parameters only, instantiate from AugmentationSettings and modify the instance variables;
+        if set to None, the default base class TestAugment, defined in this module, is used;
+        to customize the augmentation parameters only, instantiate from TestAugment and modify the instance variables;
         to customize the sequences as well, inherit a custom derived class from AugmentationSettings and override the composite_sequence and/or individual_seqs_and_outnames methods
     :type AugSettingsClass: cls.
     :returns:
@@ -116,9 +155,10 @@ def augment_images(images, masks=None, num_aug=1, do_composite=True, output_dir=
     import utils
     #from . import utils
 
+    print(type(TestAugment))
     # Instantiate from the input augmentation settings class, whether a base class or derived
     if AugSettings == None:
-        aug_settings = AugmentationSettings()
+        aug_settings = TestAugment()
     else:
         aug_settings = AugSettings
 
