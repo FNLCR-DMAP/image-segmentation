@@ -21,6 +21,7 @@ class hitif_aug(AugmentationSettings):
         #Parse the augmentation parameters
         aug_prms = config['augmentation']
         self.CLAHE= eval(aug_prms['AllChannelsCLAHE'])
+        self.Saturation= eval(aug_prms['Saturation'])
         self.impulse_noise = eval(aug_prms['ImpulseNoise'])
         self.gaussian_blur = eval(aug_prms['GaussianBlur'])
         self.poisson = eval(aug_prms['AdditivePoissonNoise'])
@@ -34,6 +35,12 @@ class hitif_aug(AugmentationSettings):
 
 
         from imgaug import augmenters as iaa
+        import imgaug as ia
+
+        import numpy as np
+        seed = np.random.randint(0, 2**31-1)
+        ia.seed(seed)
+
         self.augmenters = {} 
         augmenters = self.augmenters
 
@@ -44,12 +51,14 @@ class hitif_aug(AugmentationSettings):
                                                   self.rotate[1],\
                                                   self.rotate[2]])
 
-
         #Contrast augmentation
+
         #augmenters["CLAHE"] = iaa.AllChannelsCLAHE(self.CLAHE)
         augmenters["CLAHE"] = iaa.CLAHE(self.CLAHE)
         #augmenters["CLAHE"] = iaa.AllChannelsCLAHE(self.CLAHE[0], self.CLAHE[1], self.CLAHE[2],self.CLAHE[3])
         augmenters["gamma"] = iaa.GammaContrast(self.gamma, True)
+        #augmenters['saturation'] = iaa.Lambda(func_images=self.saturate_images, func_heatmaps=self.func_heatmaps, func_keypoints=self.func_keypoints)
+        augmenters['Saturation'] = iaa.Saturation(self.Saturation)
 
         #Blur augmenters
         augmenters["median_blur"] = iaa.MedianBlur(self.median)
@@ -60,6 +69,8 @@ class hitif_aug(AugmentationSettings):
         augmenters["poisson_noise"] = iaa.AdditivePoissonNoise(self.poisson)
         augmenters["gaussian_noise"] = iaa.AdditiveGaussianNoise(scale = self.gaussian_noise)
         augmenters["dropout"] = iaa.Dropout(self.dropout)
+
+
 
     def composite_sequence(self):
         """Return the composite sequence to run, i.e., a set of transformations to all be applied to a set of images and/or masks.
@@ -111,7 +122,6 @@ class hitif_aug(AugmentationSettings):
 
         from imgaug import augmenters as iaa
 
-        
         augmentation_tasks = []
         augmenters = self.augmenters
         for name, augmentation in self.augmenters.items():
